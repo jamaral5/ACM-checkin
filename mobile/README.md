@@ -71,7 +71,15 @@ npx expo start
 
 You should land on the **Sign in** placeholder. When signed in, you get three tabs: **Home**, **Check in**, **Profile** (with Sign out).
 
-If your phone can't connect (e.g. campus Wi-Fi blocks device-to-device traffic), use `npx expo start --tunnel`.
+### On campus Wi-Fi (or any network that blocks phone ↔ laptop)
+
+UF Wi-Fi blocks devices from talking to each other, so the normal QR code won't connect. Use a tunnel instead:
+
+1. Make a free account at [expo.dev/signup](https://expo.dev/signup). Expo Go needs it for tunnels.
+2. Log in on your computer with `npx expo login`, and in the Expo Go app with the same account.
+3. Start with `npx expo start --tunnel` and scan the QR code it prints, or in Expo Go use **Enter URL manually** with the `exp://….exp.direct` address. Don't tap the "Development servers" entry, which may point at your blocked local address.
+
+The first load downloads ~8 MB through the tunnel and can drop partway ("Could not connect to development server" at some percentage). Fully close Expo Go and open the project again; the second try is fast because the bundle is cached. Switching the phone to cellular data also helps.
 
 ## 5. Before you push
 
@@ -118,5 +126,7 @@ Same rules as web: the accent is only for the primary action, the active state a
 **"Missing Clerk key" screen** — `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` isn't set. Check `mobile/.env.local`, then `npx expo start -c`.
 
 **Network request failed / can't reach Supabase on a phone** — `EXPO_PUBLIC_SUPABASE_URL` is `127.0.0.1`, which on a phone means the phone itself. Use your computer's LAN IP (see step 3), and make sure `npx supabase start` is running.
+
+**Windows PowerShell: "npx.ps1 cannot be loaded because running scripts is disabled"**: use `npx.cmd` / `npm.cmd` instead (e.g. `npx.cmd expo start`), or run the commands in Command Prompt.
 
 **Expo Go says the project is incompatible** — update Expo Go from the app store; this project targets SDK 57.
