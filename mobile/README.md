@@ -1,89 +1,154 @@
-# ACM Check-In — Mobile
+# ACM Check-In — Mobile App
 
-The member app for ACM Check-In, built with **Expo (React Native) + TypeScript**. It talks to the same Supabase database (under the same RLS rules) and the same Clerk app as the web app. There is no separate API.
+This folder is the phone app for ACM Check-In. It's built with **Expo** (React Native + TypeScript) and uses the **same Clerk login and the same Supabase database** as the website.
 
-| | |
-| --- | --- |
-| Framework | Expo SDK 57, React Native, TypeScript |
-| Navigation | Expo Router (file-based, `src/app/`) |
-| Auth | Clerk (`@clerk/expo`) |
-| Database | `@supabase/supabase-js` with the Clerk token (ADTCIA-28) |
-| Builds | EAS Build / EAS Submit (later sprints) |
+Follow the steps in order. Each step tells you what you should see when it worked. Setting up the first time takes about 20 minutes.
 
-## 1. Prerequisites
+**Contents**
+- [Part A: First-time setup](#part-a-first-time-setup) (do once)
+- [Part B: Open the app on your phone](#part-b-open-the-app-on-your-phone) (every time)
+- [Part C: Before you push code](#part-c-before-you-push-code)
+- [Part D: How the code is organized](#part-d-how-the-code-is-organized)
+- [Something went wrong?](#something-went-wrong)
 
-- Everything in the root [ONBOARDING.md](../ONBOARDING.md) Part 1 — Node 20.19+ (22 recommended), Docker Desktop, Git — and the **web app's local setup done once** (`npm run setup` in the repo root). The mobile app uses that same local Supabase and the same Clerk keys.
-- One way to run the app:
-  - **Your phone** with the **Expo Go** app ([iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)). Easiest; works from Windows or Mac.
-  - **Android emulator** via Android Studio (Windows or Mac). See [Expo: Android Studio emulator](https://docs.expo.dev/workflow/android-studio-emulator/).
-  - **iOS simulator** via Xcode (Mac only). See [Expo: iOS simulator](https://docs.expo.dev/workflow/ios-simulator/).
+---
 
-## 2. Install
+## Part A: First-time setup
 
-From the repo root:
+### Step 1: Set up the website first
+
+The phone app reuses the website's keys and database, so the website setup has to be done first.
+
+Follow **Part 1 of [ONBOARDING.md](../ONBOARDING.md)** (in the main folder).
+
+✅ **It worked if** the website opens at http://localhost:3000 and you can sign in.
+
+### Step 2: Install Expo Go on your phone
+
+Expo Go is a free app that runs our app on your phone while you develop.
+
+- iPhone: [Expo Go on the App Store](https://apps.apple.com/app/expo-go/id982107779)
+- Android: [Expo Go on Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent)
+
+> Prefer a simulator instead of a phone? Android: [Android Studio emulator](https://docs.expo.dev/workflow/android-studio-emulator/) (Windows or Mac). iPhone: [Xcode simulator](https://docs.expo.dev/workflow/ios-simulator/) (Mac only).
+
+### Step 3: Make an Expo account
+
+1. Sign up for free at [expo.dev/signup](https://expo.dev/signup).
+2. Open **Expo Go** on your phone and sign in with that account.
+
+You need this to connect your phone over UF Wi-Fi (see Part B).
+
+### Step 4: Open a terminal in the `mobile` folder
+
+- **Windows:** press the Windows key, type **cmd**, open **Command Prompt**.
+- **Mac:** open **Terminal**.
+
+Then go to the `mobile` folder inside the project (change the path to wherever you cloned it):
 
 ```bash
-cd mobile
+cd path/to/acm_checkin/mobile
+```
+
+> **Windows + PowerShell users:** if you get *"running scripts is disabled on this system"*, either use Command Prompt instead, or type `npx.cmd` / `npm.cmd` wherever this guide says `npx` / `npm`.
+
+### Step 5: Install the app's packages
+
+```bash
 npm install
 ```
 
-## 3. Configure `mobile/.env.local`
+✅ **It worked if** it ends with something like `added 1159 packages`. (Warnings are fine. Only `ERR!` lines mean it failed.)
+
+### Step 6: Log in to Expo on your computer
 
 ```bash
-cp .env.example .env.local
+npx expo login
 ```
 
-Then fill in three values, all copied from the **root** `.env.local` the web setup created:
+Use the same Expo account as on your phone.
 
-| `mobile/.env.local` | Copy from root `.env.local` |
+✅ **It worked if** it says `Logged in as <your-username>`.
+
+### Step 7: Create your settings file
+
+The app reads its keys from a file called `.env.local` in the `mobile` folder. Make it by copying the example:
+
+- Windows: `copy .env.example .env.local`
+- Mac: `cp .env.example .env.local`
+
+Open `mobile/.env.local` in your editor (VS Code, Notepad…) and fill in the values below. You copy them from the **other** `.env.local`, the one in the main project folder that the website setup created.
+
+| In `mobile/.env.local`, set… | …to the value of this line in the main `.env.local` |
 | --- | --- |
-| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (starts with `pk_test_`) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
-| `EXPO_PUBLIC_SUPABASE_URL` | see below — it depends on where the app runs |
+| `EXPO_PUBLIC_SUPABASE_URL` | See the table below |
 
-`EXPO_PUBLIC_SUPABASE_URL` must be reachable **from the device**, so `127.0.0.1` only works on the iOS simulator:
+`EXPO_PUBLIC_SUPABASE_URL` depends on where the app runs:
 
-| Running on | `EXPO_PUBLIC_SUPABASE_URL` |
+| Running the app on… | Use this |
 | --- | --- |
-| iOS simulator | `http://127.0.0.1:54321` |
+| Your phone | `http://YOUR-COMPUTER-IP:54321`. Find your IP: Windows, run `ipconfig` and use the "IPv4 Address" under Wi-Fi. Mac: run `ipconfig getifaddr en0`. |
 | Android emulator | `http://10.0.2.2:54321` |
-| Physical phone (Expo Go) | `http://<your computer's LAN IP>:54321` — find it with `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac). Phone and computer must be on the same Wi-Fi. |
+| iPhone simulator (Mac) | `http://127.0.0.1:54321` |
 
-> Only **public** keys go in this file — every `EXPO_PUBLIC_*` value is bundled into the app. Never put `CLERK_SECRET_KEY` or the Supabase `service_role` key here.
+Save the file.
 
-## 4. Run it
+> 🔒 Only the three values above go in this file. **Never** put `CLERK_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` here, because everything in this file is built into the app where anyone could read it. The file itself is never uploaded to GitHub.
 
-Start local Supabase first (from the repo root, with Docker Desktop running):
+🎉 First-time setup is done. Go to Part B.
+
+---
+
+## Part B: Open the app on your phone
+
+Do this every time you want to work on the app.
+
+### Step 1: Start Docker and the database
+
+Open **Docker Desktop** and wait until it says **Engine running**. Then, in a terminal in the **main project folder** (not `mobile`):
 
 ```bash
 npx supabase start
 ```
 
-Then, from `mobile/`:
+> The current screens are placeholders and don't use the database yet, but data features (ADTCIA-28 onward) will.
+
+### Step 2: Start the app server
+
+In a terminal in the **`mobile` folder**:
 
 ```bash
-npx expo start
+npx expo start --tunnel
 ```
 
-- **Phone:** scan the QR code in the terminal (iOS: Camera app; Android: Expo Go).
-- **Android emulator:** press `a`. **iOS simulator:** press `i`.
-- Changed `.env.local`? Restart with `npx expo start -c` (clears the cache so new values load).
+✅ **It worked if** you see `Tunnel ready` and a big QR code. **Leave this terminal open** while you use the app.
 
-You should land on the **Sign in** placeholder. When signed in, you get three tabs: **Home**, **Check in**, **Profile** (with Sign out).
+> **Why `--tunnel`?** UF Wi-Fi doesn't let your phone talk directly to your laptop. A tunnel connects them through the internet instead, so it works on any network. On home Wi-Fi, plain `npx expo start` (no `--tunnel`) is faster.
 
-### On campus Wi-Fi (or any network that blocks phone ↔ laptop)
+### Step 3: Open it on your phone
 
-UF Wi-Fi blocks devices from talking to each other, so the normal QR code won't connect. Use a tunnel instead:
+- **iPhone:** open the **Camera** app, point it at the QR code, and tap **Open in Expo Go**.
+- **Android:** open **Expo Go** and tap **Scan QR code**.
 
-1. Make a free account at [expo.dev/signup](https://expo.dev/signup). Expo Go needs it for tunnels.
-2. Log in on your computer with `npx expo login`, and in the Expo Go app with the same account.
-3. Start with `npx expo start --tunnel` and scan the QR code it prints, or in Expo Go use **Enter URL manually** with the `exp://….exp.direct` address. Don't tap the "Development servers" entry, which may point at your blocked local address.
+The first time takes up to a minute while the app loads.
 
-The first load downloads ~8 MB through the tunnel and can drop partway ("Could not connect to development server" at some percentage). Fully close Expo Go and open the project again; the second try is fast because the bundle is cached. Switching the phone to cellular data also helps.
+✅ **It worked if** you see a white card that says **Sign in** with a purple **ADTCIA-27** tag.
 
-## 5. Before you push
+> Use the **QR code**, not the "Development servers" list in Expo Go. That list can point at an address UF Wi-Fi blocks.
 
-CI runs these on every PR that touches `mobile/` — run them locally first:
+### Step 4: Make changes
+
+Edit any file in `mobile/src/` and save. The app on your phone updates by itself within a second or two.
+
+To stop the server, click the terminal and press **Ctrl + C**.
+
+---
+
+## Part C: Before you push code
+
+GitHub automatically checks every pull request that changes the mobile app. Run the same three checks yourself first, in the `mobile` folder:
 
 ```bash
 npm run lint
@@ -91,42 +156,61 @@ npm run typecheck
 npm test
 ```
 
-## Project layout
+✅ All three should finish **without errors**. If one fails, read the message: it names the file and line to fix.
+
+---
+
+## Part D: How the code is organized
 
 ```
 mobile/
   src/
-    app/                 Routes (Expo Router). Every file is a screen.
-      _layout.tsx        ClerkProvider + signed-in / signed-out switch
-      (auth)/            Signed-out stack (sign-in; sign-up + onboarding in ADTCIA-27)
-      (tabs)/            Signed-in tabs: Home, Check in, Profile
-    components/          Shared UI (Screen, PlaceholderScreen, Button)
-    theme/               Design tokens -- the ONLY place colours are defined
+    app/              Screens. Every file here is a screen (Expo Router).
+      _layout.tsx       Decides what you see: signed out → (auth), signed in → (tabs)
+      (auth)/           Screens for signed-out users (Sign in)
+      (tabs)/           The tab bar for signed-in users: Home, Check in, Profile
+    components/       Reusable pieces (Screen, PlaceholderScreen, Button)
+    theme/            All colours, corner sizes and spacing
 ```
 
-## Design tokens: no raw hex
+### Colours: always use the theme
 
-`src/theme/tokens.ts` ports the web design system from [`app/globals.css`](../app/globals.css): canvas/surface, the ink ramp, lines, accent tiers, good/warn/bad, radii.
+All colours are copied from the website's design (`app/globals.css`) into `src/theme/tokens.ts`. **Never type a colour code like `#7c3aed` in a screen.** Use the theme instead:
 
 ```tsx
 import { colors, radii, space } from '@/theme';
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: radii.card, padding: space[4] },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.card,
+    padding: space[4],
+  },
 });
 ```
 
-- `npm run lint` **fails** on a raw hex colour anywhere in `src/` outside `src/theme/`.
-- `npm test` **fails** if a token no longer matches `app/globals.css`. If web changes a token, update `tokens.ts` to match.
+Two automatic checks keep this honest:
+- `npm run lint` fails if a screen contains a raw colour code.
+- `npm test` fails if a colour no longer matches the website. If the web team changes a colour, update `tokens.ts` to match.
 
-Same rules as web: the accent is only for the primary action, the active state and identity; good/warn/bad are never branded; light surface only.
+Design rules (same as the website): purple (`colors.accent`) is **only** for the main button, the selected tab, and logos/avatars. Green/amber/red are for success/warning/error only. Light mode only.
 
-## Troubleshooting
+---
 
-**"Missing Clerk key" screen** — `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` isn't set. Check `mobile/.env.local`, then `npx expo start -c`.
+## Something went wrong?
 
-**Network request failed / can't reach Supabase on a phone** — `EXPO_PUBLIC_SUPABASE_URL` is `127.0.0.1`, which on a phone means the phone itself. Use your computer's LAN IP (see step 3), and make sure `npx supabase start` is running.
+Find the message you're seeing:
 
-**Windows PowerShell: "npx.ps1 cannot be loaded because running scripts is disabled"**: use `npx.cmd` / `npm.cmd` instead (e.g. `npx.cmd expo start`), or run the commands in Command Prompt.
+| What you see | What to do |
+| --- | --- |
+| **"running scripts is disabled on this system"** (Windows PowerShell) | Use **Command Prompt**, or type `npx.cmd` / `npm.cmd` instead of `npx` / `npm`. |
+| **"Missing Clerk key"** screen on the phone | `mobile/.env.local` is missing or the Clerk line is empty (Part A, Step 7). Fix it, stop the server (Ctrl + C), and start it again with `npx expo start --tunnel -c`. The `-c` makes it reload the settings. |
+| Expo Go asks you to **sign in to Expo CLI** / run `npx expo login` | Do Part A, Steps 3 and 6. Use the same account on phone and computer. |
+| **"Could not connect to development server"**, stuck at some % | The download dropped partway (common on UF Wi-Fi). Fully close Expo Go (swipe it away), open it, and scan again. The second try is fast. Still failing? Turn off Wi-Fi on your phone and use cellular data. |
+| **"Could not connect"** right away, no % | The server isn't running (Part B, Step 2), or you tapped the "Development servers" list instead of scanning the QR code. |
+| Expo Go says the project is **incompatible** / wrong SDK | Update Expo Go from the App Store or Google Play. This app needs SDK 57. |
+| **"Network request failed"** when the app loads data | Check `EXPO_PUBLIC_SUPABASE_URL` uses your computer's IP, not `127.0.0.1` (Part A, Step 7), and that `npx supabase start` is running. |
+| `npx supabase start` fails on Windows with an error about **vector** or **analytics** | Run `npx supabase start -x vector,logflare` instead. It skips the logging services, which don't work on Windows. |
+| You changed `.env.local` but nothing changed | Restart with `npx expo start --tunnel -c`. Settings are only read at startup. |
 
-**Expo Go says the project is incompatible** — update Expo Go from the app store; this project targets SDK 57.
+Still stuck? Ask in the team channel and include a screenshot of the error.
