@@ -1,4 +1,4 @@
-import { ClerkProvider, useAuth } from '@clerk/expo';
+import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,46 +6,56 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { PlaceholderScreen } from '@/components/screen';
+import { env } from '@/lib/env';
+import { ProfileStatusProvider, useProfileStatus } from '@/lib/profile-status';
 
 SplashScreen.preventAutoHideAsync();
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
 export default function RootLayout() {
-  if (!publishableKey) {
+  if (!env.clerkPublishableKey) {
     return <MissingConfig />;
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <StatusBar style="dark" />
-      <RootNavigator />
+    // tokenCache stores the session in the device's secure storage, so a
+    // signed-in user stays signed in across app restarts.
+    <ClerkProvider publishableKey={env.clerkPublishableKey} tokenCache={tokenCache}>
+      <ProfileStatusProvider>
+        <StatusBar style="dark" />
+        <RootNavigator />
+      </ProfileStatusProvider>
     </ClerkProvider>
   );
 }
 
 /**
- * Signed-out users only ever see the (auth) stack; signed-in users only see
- * the (tabs). Flipping isSignedIn (sign-in / sign-out) moves the user across
- * automatically -- no manual redirects in screens.
+ * Exactly one group is reachable at a time:
+ *   signed out                    → (auth)      sign in / sign up
+ *   signed in, no attendees row   → onboarding  (mirrors web's proxy.ts gate)
+ *   signed in, has a profile      → (tabs)
+ * When the status changes (sign in, finish onboarding, sign out) Expo Router
+ * moves the user to the right group automatically -- screens never redirect.
  */
 function RootNavigator() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { status } = useProfileStatus();
 
   useEffect(() => {
-    if (isLoaded) SplashScreen.hideAsync();
-  }, [isLoaded]);
+    if (status !== 'loading') SplashScreen.hideAsync();
+  }, [status]);
 
-  // Keep the splash up until Clerk has restored any saved session, so a
-  // signed-in user never flashes the sign-in screen on launch.
-  if (!isLoaded) return null;
+  // Keep the splash up while Clerk restores the session and the gate check
+  // runs, so nobody flashes the wrong screen on launch.
+  if (status === 'loading') return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!isSignedIn}>
+      <Stack.Protected guard={status === 'complete'}>
         <Stack.Screen name="(tabs)" />
       </Stack.Protected>
-      <Stack.Protected guard={!isSignedIn}>
+      <Stack.Protected guard={status === 'missing'}>
+        <Stack.Screen name="onboarding" />
+      </Stack.Protected>
+      <Stack.Protected guard={status === 'signed-out'}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
     </Stack>

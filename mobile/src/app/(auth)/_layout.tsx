@@ -1,6 +1,10 @@
 import { Stack } from 'expo-router';
 
-/** Signed-out stack: sign-in now, sign-up and onboarding arrive with ADTCIA-27. */
+export const unstable_settings = {
+  initialRouteName: 'sign-in',
+};
+
+/** Signed-out stack: sign in and sign up. */
 export default function AuthLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />;
 }

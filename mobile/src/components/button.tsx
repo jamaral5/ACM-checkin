@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { colors, radii, space } from '@/theme';
 
@@ -10,27 +10,36 @@ export function Button({
   onPress,
   variant = 'primary',
   disabled = false,
+  loading = false,
 }: {
   label: string;
   onPress: () => void;
   variant?: Variant;
   disabled?: boolean;
+  /** Shows a spinner and blocks presses while an action is in flight. */
+  loading?: boolean;
 }) {
   const primary = variant === 'primary';
+  const inactive = disabled || loading;
+  const ink = primary ? colors.accentInk : colors.inkStrong;
+
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: inactive, busy: loading }}
       onPress={onPress}
-      disabled={disabled}
+      disabled={inactive}
       style={({ pressed }) => [
         styles.base,
         primary ? styles.primary : styles.secondary,
         pressed && (primary ? styles.primaryPressed : styles.secondaryPressed),
         disabled && styles.disabled,
       ]}>
-      <Text style={[styles.label, { color: primary ? colors.accentInk : colors.inkStrong }]}>
-        {label}
-      </Text>
+      {loading ? (
+        <ActivityIndicator color={ink} />
+      ) : (
+        <Text style={[styles.label, { color: ink }]}>{label}</Text>
+      )}
     </Pressable>
   );
 }
