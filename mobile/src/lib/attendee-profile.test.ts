@@ -35,7 +35,9 @@ describe('checkAttendeeProfile', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(
       'http://127.0.0.1:54321/rest/v1/attendees?select=id&user_id=eq.user_123&limit=1',
-      { headers: { apikey: 'anon-key', Authorization: 'Bearer clerk-jwt' } },
+      expect.objectContaining({
+        headers: { apikey: 'anon-key', Authorization: 'Bearer clerk-jwt' },
+      }),
     );
   });
 
@@ -50,6 +52,21 @@ describe('checkAttendeeProfile', () => {
     it('when the request throws (e.g. no network)', async () => {
       const fetchImpl = fakeFetch(new Error('Network request failed'));
       await expect(checkAttendeeProfile({ ...base, fetchImpl })).resolves.toBe('complete');
+    });
+
+    it('when the database never answers (times out)', async () => {
+      const onError = jest.fn();
+      // A request that only ends when it is aborted -- like an unreachable host.
+      const fetchImpl = jest.fn(
+        (_url: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+          }),
+      );
+      await expect(
+        checkAttendeeProfile({ ...base, fetchImpl, timeoutMs: 20, onError }),
+      ).resolves.toBe('complete');
+      expect(onError).toHaveBeenCalledWith('attendee lookup timed out after 20ms');
     });
 
     it('when Supabase is not configured', async () => {

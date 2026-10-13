@@ -17,12 +17,20 @@
 
 export type ProfileStatus = 'complete' | 'missing';
 
+/**
+ * How long the check may take before failing open. The app keeps the splash
+ * screen up while it runs, so an unreachable database (e.g. local Supabase
+ * from a phone on campus Wi-Fi) must not hang launch.
+ */
+export const PROFILE_CHECK_TIMEOUT_MS = 5000;
+
 export type ProfileCheckInput = {
   userId: string;
   token: string | null;
   supabaseUrl: string | undefined;
   supabaseAnonKey: string | undefined;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
   /** Called when the lookup fails and we fail open. */
   onError?: (reason: string) => void;
 };
@@ -33,12 +41,16 @@ export async function checkAttendeeProfile({
   supabaseUrl,
   supabaseAnonKey,
   fetchImpl = fetch,
+  timeoutMs = PROFILE_CHECK_TIMEOUT_MS,
   onError,
 }: ProfileCheckInput): Promise<ProfileStatus> {
   if (!supabaseUrl || !supabaseAnonKey) {
     onError?.('EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY not set');
     return 'complete';
   }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetchImpl(
@@ -49,6 +61,7 @@ export async function checkAttendeeProfile({
           apikey: supabaseAnonKey,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        signal: controller.signal,
       },
     );
 
@@ -60,7 +73,12 @@ export async function checkAttendeeProfile({
     const rows = (await res.json()) as unknown;
     return Array.isArray(rows) && rows.length > 0 ? 'complete' : 'missing';
   } catch (err) {
-    onError?.(`attendee lookup threw: ${err instanceof Error ? err.message : String(err)}`);
+    const reason = controller.signal.aborted
+      ? `attendee lookup timed out after ${timeoutMs}ms`
+      : `attendee lookup threw: ${err instanceof Error ? err.message : String(err)}`;
+    onError?.(reason);
     return 'complete';
+  } finally {
+    clearTimeout(timer);
   }
 }
