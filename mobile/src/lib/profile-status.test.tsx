@@ -50,6 +50,27 @@ it('stays complete after markComplete even when Clerk hands out a new getToken',
   expect(check).toHaveBeenCalledTimes(1);
 });
 
+// Regression: the stub pass used to survive sign-out, so signing back in as
+// the same user skipped both the database check and onboarding.
+it('forgets the stub pass on sign-out and asks the database again on sign-in', async () => {
+  check.mockResolvedValue('missing');
+  const { result, rerender } = await renderStatus();
+  await waitFor(() => expect(result.current.status).toBe('missing'));
+  await act(() => result.current.markComplete());
+  expect(result.current.status).toBe('complete');
+
+  mockAuth.isSignedIn = false; // Profile → Sign out
+  mockAuth.userId = null;
+  await rerender(undefined);
+  expect(result.current.status).toBe('signed-out');
+
+  mockAuth.isSignedIn = true; // sign back in as the same user
+  mockAuth.userId = 'user_1';
+  await rerender(undefined);
+  await waitFor(() => expect(result.current.status).toBe('missing'));
+  expect(check).toHaveBeenCalledTimes(2);
+});
+
 it('re-checks the database on refresh()', async () => {
   check.mockResolvedValueOnce('missing').mockResolvedValueOnce('complete');
   const { result } = await renderStatus();

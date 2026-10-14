@@ -44,6 +44,13 @@ export function ProfileStatusProvider({ children }: { children: ReactNode }) {
     getTokenRef.current = getToken;
   }, [getToken]);
 
+  // Signing out ends the "session": the next sign-in must ask the database
+  // again, even for the same user, instead of reusing a stub pass.
+  const signedOut = isLoaded && !isSignedIn;
+  if (signedOut && completedThisSession.size > 0) {
+    setCompletedThisSession(new Set());
+  }
+
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !userId) return;
 
