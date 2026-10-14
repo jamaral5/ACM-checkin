@@ -37,7 +37,7 @@ Expo Go is a free app that runs our app on your phone while you develop.
 1. Sign up for free at [expo.dev/signup](https://expo.dev/signup). Use your **own** account, not a shared one.
 2. Open **Expo Go** on your phone and sign in with that account.
 
-You need this to connect your phone over UF Wi-Fi (see Part B).
+On an iPhone, Expo Go only opens apps when it's signed in (see the iPhone rule below).
 
 > **iPhone rule:** Expo Go on an iPhone only opens an app from a computer signed in to the **same** Expo account. So iPhone users run the server on their **own** laptop and scan their **own** QR code. A teammate's QR code won't open ("these accounts need to match"). Android phones don't have this rule.
 
@@ -85,17 +85,11 @@ Open `mobile/.env.local` in your editor (VS Code, Notepad…) and fill in the va
 | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (starts with `pk_test_`) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
-| `EXPO_PUBLIC_SUPABASE_URL` | See the table below |
-
-`EXPO_PUBLIC_SUPABASE_URL` depends on where the app runs:
-
-| Running the app on… | Use this |
-| --- | --- |
-| Your phone | `http://YOUR-COMPUTER-IP:54321`. Find your IP: Windows, run `ipconfig` and use the "IPv4 Address" under Wi-Fi. Mac: run `ipconfig getifaddr en0`. |
-| Android emulator | `http://10.0.2.2:54321` |
-| iPhone simulator (Mac) | `http://127.0.0.1:54321` |
+| `EXPO_PUBLIC_SUPABASE_URL` | **Leave it as `http://127.0.0.1:54321`** |
 
 Save the file.
+
+> **Why leave it as 127.0.0.1?** On a phone, `127.0.0.1` would mean the phone itself. But while developing, the app automatically swaps in your laptop's address (the same one Expo Go loaded the app from), so it reaches your laptop's database, even when your Wi-Fi address changes.
 
 > 🔒 Only the three values above go in this file. **Never** put `CLERK_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` here, because everything in this file is built into the app where anyone could read it. The file itself is never uploaded to GitHub.
 
@@ -117,19 +111,25 @@ npx supabase start
 
 To also run the edge functions (onboarding saves through one), open another terminal in the main folder and run `npm run dev:functions`. Leave it open.
 
-> **On UF Wi-Fi your phone can't reach this database** (only the app itself goes through the tunnel). The app still works: after sign-in it waits up to 5 seconds for the "do you have a profile?" check, then lets you through. To test **onboarding** for a brand-new account, use home Wi-Fi or connect your laptop to your phone's hotspot, and set `EXPO_PUBLIC_SUPABASE_URL` to your laptop's IP on that network (Part A, Step 7).
-
 ### Step 2: Start the app server
 
-In a terminal in the **`mobile` folder**:
+Your phone and laptop must be on the **same Wi-Fi** (eduroam works). In a terminal in the **`mobile` folder**:
+
+```bash
+npx expo start
+```
+
+✅ **It worked if** you see a big QR code. **Leave this terminal open** while you use the app.
+
+> **Windows:** the first time, Windows asks whether to let **Node.js** through the firewall. Click **Allow** (tick both Private and Public networks), or your phone can't connect.
+
+**If your phone can't connect** (some networks block devices from talking to each other), use the tunnel instead. It goes through the internet and works on any network:
 
 ```bash
 npx expo start --tunnel
 ```
 
-✅ **It worked if** you see `Tunnel ready` and a big QR code. **Leave this terminal open** while you use the app.
-
-> **Why `--tunnel`?** UF Wi-Fi doesn't let your phone talk directly to your laptop. A tunnel connects them through the internet instead, so it works on any network. On home Wi-Fi, plain `npx expo start` (no `--tunnel`) is faster.
+> In tunnel mode only the app goes through the tunnel, **not the database**. Sign-in still works (the "do you have a profile?" check gives up after 5 seconds and lets you in), but to test **onboarding** for a new account, use the normal `npx expo start`.
 
 ### Step 3: Open it on your phone
 
@@ -142,7 +142,7 @@ The first time takes up to a minute while the app loads.
 
 Sign in with the **same account you use on the website**. You land on **Home**, which greets you by name. A brand-new account first sees **Finish your profile** (name and grad year). **Profile → Sign out** takes you back to Sign in. Closing and reopening the app keeps you signed in.
 
-> Use the **QR code**, not the "Development servers" list in Expo Go. That list can point at an address UF Wi-Fi blocks.
+> Use the **QR code** from your terminal, not old entries in Expo Go's "Recently opened" list. Those can point at an address or server that no longer exists.
 
 ### Step 4: Make changes
 
@@ -212,16 +212,16 @@ Find the message you're seeing:
 | What you see | What to do |
 | --- | --- |
 | **"running scripts is disabled on this system"** (Windows PowerShell) | Use **Command Prompt**, or type `npx.cmd` / `npm.cmd` instead of `npx` / `npm`. |
-| **"Missing Clerk key"** screen on the phone | `mobile/.env.local` is missing or the Clerk line is empty (Part A, Step 7). Fix it, stop the server (Ctrl + C), and start it again with `npx expo start --tunnel -c`. The `-c` makes it reload the settings. |
+| **"Missing Clerk key"** screen on the phone | `mobile/.env.local` is missing or the Clerk line is empty (Part A, Step 7). Fix it, stop the server (Ctrl + C), and start it again with `npx expo start -c`. The `-c` makes it reload the settings. |
 | Expo Go asks you to **sign in to Expo CLI** / run `npx expo login` | Do Part A, Steps 3 and 6. Use the same account on phone and computer. |
-| **"Could not connect to development server"**, stuck at some % | The download dropped partway (common on UF Wi-Fi). Fully close Expo Go (swipe it away), open it, and scan again. The second try is fast. Still failing? Turn off Wi-Fi on your phone and use cellular data. |
+| **"Could not connect to development server"**, stuck at some % | The download dropped partway (more common in tunnel mode). Fully close Expo Go (swipe it away), open it, and scan again. The second try is fast. Still failing? Turn off Wi-Fi on your phone and use cellular data. |
 | **"Could not connect"** right away, no % | The server isn't running (Part B, Step 2), or you tapped the "Development servers" list instead of scanning the QR code. |
 | **"Could not connect"** keeps happening even though the server is running | The tunnel has gone stale (common after it's been running for hours). Stop the server (Ctrl + C), start it again, delete the old entries under **Recently opened** in Expo Go, and scan the **new** QR code. The address may change (e.g. `-8081` → `-8082`). |
 | iPhone: **"You're signed in to Expo CLI as … and to Expo Go as …"** | The phone and the computer running the server use different Expo accounts. Run the server on your own laptop with your own account (see the iPhone rule in Part A, Step 3). |
-| **Onboarding:** "Couldn't reach the server" when tapping Continue | The phone can't reach your local Supabase (e.g. on UF Wi-Fi). Use home Wi-Fi or a hotspot and your laptop's IP on that network, and make sure `npx supabase start` and `npm run dev:functions` are running. |
+| **Onboarding:** "Couldn't reach the server" when tapping Continue | The phone can't reach your laptop's database. Use `npx expo start` (not `--tunnel`), keep phone and laptop on the same Wi-Fi, and make sure `npx supabase start` and `npm run dev:functions` are running. |
 | Expo Go says the project is **incompatible** / wrong SDK | Update Expo Go from the App Store or Google Play. This app needs SDK 57. |
-| **"Network request failed"** when the app loads data | Check `EXPO_PUBLIC_SUPABASE_URL` uses your computer's IP, not `127.0.0.1` (Part A, Step 7), and that `npx supabase start` is running. |
+| **"Network request failed"** when the app loads data | Make sure `npx supabase start` is running and you started the app with `npx expo start` (not `--tunnel`). Leave `EXPO_PUBLIC_SUPABASE_URL` as `http://127.0.0.1:54321` (Part A, Step 7). |
 | `npx supabase start` fails on Windows with an error about **vector** or **analytics** | Run `npx supabase start -x vector,logflare` instead. It skips the logging services, which don't work on Windows. |
-| You changed `.env.local` but nothing changed | Restart with `npx expo start --tunnel -c`. Settings are only read at startup. |
+| You changed `.env.local` but nothing changed | Restart with `npx expo start -c`. Settings are only read at startup. |
 
 Still stuck? Ask in the team channel and include a screenshot of the error.
