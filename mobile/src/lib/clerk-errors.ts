@@ -5,6 +5,13 @@ const FRIENDLY: Record<string, string> = {
   form_code_incorrect: "That code isn't right. Check the email and try again.",
   verification_expired: 'That code has expired. Request a new one.',
   form_param_format_invalid: "That doesn't look like a valid email address.",
+  form_password_incorrect: "That password isn't right. Try again, or use “Forgot password?”.",
+  form_password_pwned:
+    'That password has shown up in a data breach, so it isn’t safe to use. Please choose a different one.',
+  // An account created with Google (or before passwords were required) has no password.
+  strategy_for_user_invalid:
+    'This account doesn’t have a password yet. Use “Continue with Google”, “Email me a code instead”, or “Forgot password?” to set one.',
+  // Length / strength errors keep Clerk's own message: it names the exact rule (e.g. the minimum length).
 };
 
 type ClerkLikeError = {

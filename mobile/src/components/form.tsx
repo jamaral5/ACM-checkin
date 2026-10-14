@@ -68,6 +68,38 @@ export function TextField({ label, ...inputProps }: { label: string } & TextInpu
   );
 }
 
+/**
+ * Password input with a Show/Hide toggle. `isNew` tells password managers
+ * whether to fill a saved password (sign in) or suggest a new one (sign up).
+ */
+export function PasswordField({
+  label = 'Password',
+  isNew = false,
+  ...inputProps
+}: { label?: string; isNew?: boolean } & TextInputProps) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <View>
+      <TextField
+        label={label}
+        secureTextEntry={!visible}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete={isNew ? 'new-password' : 'current-password'}
+        textContentType={isNew ? 'newPassword' : 'password'}
+        {...inputProps}
+      />
+      <Text
+        accessibilityRole="button"
+        accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+        onPress={() => setVisible((v) => !v)}
+        style={styles.toggle}>
+        {visible ? 'Hide' : 'Show'}
+      </Text>
+    </View>
+  );
+}
+
 /** Inline error in the system's "bad" tone. Renders nothing without a message. */
 export function FormError({ message }: { message?: string | null }) {
   if (!message) return null;
@@ -153,6 +185,14 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: colors.accent,
+  },
+  toggle: {
+    position: 'absolute',
+    right: space[3],
+    bottom: 12,
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
   error: {
     padding: space[3],

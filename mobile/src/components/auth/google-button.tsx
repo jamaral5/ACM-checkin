@@ -31,11 +31,16 @@ export function GoogleButton({ onError }: { onError: (message: string | null) =>
     onError(null);
     setLoading(true);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({ strategy: 'oauth_google' });
+      const { createdSessionId, setActive, signUp, authSessionResult } = await startSSOFlow({
+        strategy: 'oauth_google',
+      });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+      } else if (authSessionResult?.type === 'success' && signUp?.status === 'missing_requirements') {
+        // Google worked but Clerk wants more before creating the account.
+        onError(`Clerk still needs: ${signUp.missingFields.join(', ')}. Check the Clerk app's sign-up settings.`);
       }
-      // No session means the user closed the Google sheet -- not an error.
+      // Otherwise the user closed the Google sheet -- not an error.
     } catch (err) {
       onError(clerkErrorMessage(err, "Couldn't sign in with Google. Please try again."));
     } finally {
