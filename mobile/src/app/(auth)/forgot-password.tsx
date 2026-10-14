@@ -3,8 +3,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { CodeStep } from '@/components/auth/code-step';
+import { finishSignIn } from '@/components/auth/finish';
+import { useFormAction } from '@/components/auth/use-form-action';
 import { Button } from '@/components/button';
-import { FooterText, FormError, FormScreen, PasswordField, TextField, TextLink } from '@/components/form';
+import { EmailField, FooterText, FormError, FormScreen, PasswordField, TextLink } from '@/components/form';
 import { clerkErrorMessage } from '@/lib/clerk-errors';
 
 /**
@@ -13,31 +15,18 @@ import { clerkErrorMessage } from '@/lib/clerk-errors';
  */
 export default function ForgotPasswordScreen() {
   const { signIn } = useSignIn();
-  const [step, setStep] = useState<'email' | 'reset'>('email');
+  const { loading, error, setError, run } = useFormAction();
+  const [codeSent, setCodeSent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function run(action: () => Promise<string | null>) {
-    setError(null);
-    setLoading(true);
-    try {
-      setError(await action());
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const sendCode = () =>
     run(async () => {
       const created = await signIn.create({ identifier: email.trim() });
       if (created.error) return clerkErrorMessage(created.error);
-
       const sent = await signIn.resetPasswordEmailCode.sendCode();
       if (sent.error) return clerkErrorMessage(sent.error);
-
-      setStep('reset');
+      setCodeSent(true);
       return null;
     });
 
@@ -49,49 +38,25 @@ export default function ForgotPasswordScreen() {
         const verified = await signIn.resetPasswordEmailCode.verifyCode({ code });
         if (verified.error) return clerkErrorMessage(verified.error);
       }
-
       const submitted = await signIn.resetPasswordEmailCode.submitPassword({ password });
-      if (submitted.error) return clerkErrorMessage(submitted.error);
-
-      if (signIn.status !== 'complete') {
-        return `Password reset needs another step this app doesn't support yet (${signIn.status}).`;
-      }
       // Signed in with the new password; the root navigator takes over.
-      const finalized = await signIn.finalize();
-      return finalized.error ? clerkErrorMessage(finalized.error) : null;
+      return submitted.error ? clerkErrorMessage(submitted.error) : finishSignIn(signIn);
     });
 
   return (
     <FormScreen
       title="Reset your password"
       subtitle={
-        step === 'email'
-          ? "Enter your account's email and we'll send you a code."
-          : 'Enter the code and choose a new password.'
+        codeSent
+          ? 'Enter the code and choose a new password.'
+          : "Enter your account's email and we'll send you a code."
       }
       footer={
         <FooterText>
           Remembered it? <TextLink label="Back to sign in" onPress={() => router.replace('/sign-in')} />
         </FooterText>
       }>
-      {step === 'email' ? (
-        <>
-          <TextField
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@ufl.edu"
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            returnKeyType="send"
-            onSubmitEditing={sendCode}
-          />
-          <FormError message={error} />
-          <Button label="Email me a code" loading={loading} disabled={!email.trim()} onPress={sendCode} />
-        </>
-      ) : (
+      {codeSent ? (
         <CodeStep
           email={email.trim()}
           submitLabel="Reset password"
@@ -102,11 +67,17 @@ export default function ForgotPasswordScreen() {
           onResend={sendCode}
           onBack={() => {
             setError(null);
-            setStep('email');
+            setCodeSent(false);
             void signIn.reset();
           }}>
           <PasswordField label="New password" isNew value={password} onChangeText={setPassword} />
         </CodeStep>
+      ) : (
+        <>
+          <EmailField value={email} onChangeText={setEmail} returnKeyType="send" onSubmitEditing={sendCode} />
+          <FormError message={error} />
+          <Button label="Email me a code" loading={loading} disabled={!email.trim()} onPress={sendCode} />
+        </>
       )}
     </FormScreen>
   );

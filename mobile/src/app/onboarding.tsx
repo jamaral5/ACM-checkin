@@ -1,10 +1,11 @@
 import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { useState } from 'react';
 
+import { useFormAction } from '@/components/auth/use-form-action';
 import { Button } from '@/components/button';
 import { FooterText, FormError, FormScreen, TextField, TextLink } from '@/components/form';
 import { env } from '@/lib/env';
-import { submitOnboardingProfile, validateOnboarding } from '@/lib/onboarding';
+import { submitOnboardingProfile } from '@/lib/onboarding';
 import { useProfileStatus } from '@/lib/profile-status';
 
 /**
@@ -21,28 +22,17 @@ export default function OnboardingScreen() {
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
   const [lastName, setLastName] = useState(user?.lastName ?? '');
   const [gradYear, setGradYear] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { loading, error, run } = useFormAction();
 
-  async function onSubmit() {
-    const input = { firstName, lastName, gradYear };
-    const invalid = validateOnboarding(input);
-    if (invalid) {
-      setError(invalid);
-      return;
-    }
-
-    setError(null);
-    setLoading(true);
-    try {
-      const result = await submitOnboardingProfile(input, () => getToken(), {
+  // submitOnboardingProfile validates the fields itself (web's rules), so
+  // invalid input comes back as an error without calling the server.
+  const onSubmit = () =>
+    run(async () => {
+      const result = await submitOnboardingProfile({ firstName, lastName, gradYear }, () => getToken(), {
         supabaseUrl: env.supabaseUrl,
         supabaseAnonKey: env.supabaseAnonKey,
       });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
+      if (!result.ok) return result.error;
 
       if (result.saved) {
         // The edge function wrote the attendees row and updated the Clerk
@@ -50,7 +40,7 @@ export default function OnboardingScreen() {
         // finds the row and the root navigator moves to the tabs.
         await user?.reload().catch(() => undefined);
         refresh();
-        return;
+        return null;
       }
 
       // Edge function not deployed yet (stub mode): set the name in Clerk
@@ -59,12 +49,8 @@ export default function OnboardingScreen() {
         ?.update({ firstName: firstName.trim(), lastName: lastName.trim() })
         .catch((err) => console.warn('Could not update Clerk name', err));
       markComplete();
-    } catch {
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
+      return null;
+    });
 
   return (
     <FormScreen

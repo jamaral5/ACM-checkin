@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { missingFieldsMessage } from '@/components/auth/finish';
 import { Button } from '@/components/button';
 import { clerkErrorMessage } from '@/lib/clerk-errors';
 
@@ -38,7 +39,7 @@ export function GoogleButton({ onError }: { onError: (message: string | null) =>
         await setActive({ session: createdSessionId });
       } else if (authSessionResult?.type === 'success' && signUp?.status === 'missing_requirements') {
         // Google worked but Clerk wants more before creating the account.
-        onError(`Clerk still needs: ${signUp.missingFields.join(', ')}. Check the Clerk app's sign-up settings.`);
+        onError(missingFieldsMessage(signUp.missingFields));
       }
       // Otherwise the user closed the Google sheet -- not an error.
     } catch (err) {

@@ -68,6 +68,22 @@ export function TextField({ label, ...inputProps }: { label: string } & TextInpu
   );
 }
 
+/** Email input with the right keyboard, autofill and no auto-capitalisation. */
+export function EmailField(inputProps: TextInputProps) {
+  return (
+    <TextField
+      label="Email"
+      placeholder="you@ufl.edu"
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="email"
+      keyboardType="email-address"
+      textContentType="emailAddress"
+      {...inputProps}
+    />
+  );
+}
+
 /**
  * Password input with a Show/Hide toggle. `isNew` tells password managers
  * whether to fill a saved password (sign in) or suggest a new one (sign up).
