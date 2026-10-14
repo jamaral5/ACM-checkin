@@ -138,7 +138,7 @@ npx expo start --tunnel
 
 The first time takes up to a minute while the app loads.
 
-✅ **It worked if** you see the **Sign in** screen with **Continue with Google** and an email box.
+✅ **It worked if** you see the **Sign in** screen with **Continue with Google**, email and password fields, and **Forgot password?** / **Email me a code instead** links.
 
 Sign in with the **same account you use on the website**. You land on **Home**, which greets you by name. A brand-new account first sees **Finish your profile** (name and grad year). **Profile → Sign out** takes you back to Sign in. Closing and reopening the app keeps you signed in.
 
@@ -173,7 +173,7 @@ mobile/
   src/
     app/              Screens. Every file here is a screen (Expo Router).
       _layout.tsx       Decides what you see: signed out → (auth), no profile → onboarding, otherwise → (tabs)
-      (auth)/           Sign in and Create account (Google or a 6-digit email code)
+      (auth)/           Sign in, Create account and Forgot password (email + password, Google, or an email code)
       onboarding.tsx    Finish your profile (first name, last name, grad year)
       (tabs)/           The tab bar for signed-in users: Home, Check in, Profile
     lib/              Non-screen logic: the onboarding check, onboarding submit, Clerk error messages
