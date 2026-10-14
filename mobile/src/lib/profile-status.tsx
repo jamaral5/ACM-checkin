@@ -1,5 +1,13 @@
 import { useAuth } from '@clerk/expo';
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { checkAttendeeProfile, type ProfileStatus } from './attendee-profile';
 import { env } from './env';
@@ -24,13 +32,24 @@ export function ProfileStatusProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, userId, getToken } = useAuth();
   const [result, setResult] = useState<{ userId: string; status: ProfileStatus } | null>(null);
   const [checkCount, setCheckCount] = useState(0);
+  // Users let through by the onboarding stub this app session. Kept separate
+  // from `result` so a later database check can't send them back.
+  const [completedThisSession, setCompletedThisSession] = useState<ReadonlySet<string>>(new Set());
+
+  // Clerk hands out a new getToken function whenever its state changes (e.g.
+  // after user.update()). Read it through a ref so that alone never re-runs
+  // the check -- only sign-in, a different user, or refresh() should.
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !userId) return;
 
     let cancelled = false;
     (async () => {
-      const token = await getToken().catch(() => null);
+      const token = await getTokenRef.current().catch(() => null);
       const status = await checkAttendeeProfile({
         userId,
         token,
@@ -44,16 +63,17 @@ export function ProfileStatusProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, userId, getToken, checkCount]);
+  }, [isLoaded, isSignedIn, userId, checkCount]);
 
   const refresh = useCallback(() => setCheckCount((n) => n + 1), []);
   const markComplete = useCallback(() => {
-    if (userId) setResult({ userId, status: 'complete' });
+    if (userId) setCompletedThisSession((prev) => new Set(prev).add(userId));
   }, [userId]);
 
   let status: Status;
   if (!isLoaded) status = 'loading';
   else if (!isSignedIn || !userId) status = 'signed-out';
+  else if (completedThisSession.has(userId)) status = 'complete';
   // A result for a different (previous) user doesn't count.
   else if (result?.userId !== userId) status = 'loading';
   else status = result.status;
