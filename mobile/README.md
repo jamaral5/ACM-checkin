@@ -34,10 +34,12 @@ Expo Go is a free app that runs our app on your phone while you develop.
 
 ### Step 3: Make an Expo account
 
-1. Sign up for free at [expo.dev/signup](https://expo.dev/signup).
+1. Sign up for free at [expo.dev/signup](https://expo.dev/signup). Use your **own** account, not a shared one.
 2. Open **Expo Go** on your phone and sign in with that account.
 
 You need this to connect your phone over UF Wi-Fi (see Part B).
+
+> **iPhone rule:** Expo Go on an iPhone only opens an app from a computer signed in to the **same** Expo account. So iPhone users run the server on their **own** laptop and scan their **own** QR code. A teammate's QR code won't open ("these accounts need to match"). Android phones don't have this rule.
 
 ### Step 4: Open a terminal in the `mobile` folder
 
@@ -113,7 +115,9 @@ Open **Docker Desktop** and wait until it says **Engine running**. Then, in a te
 npx supabase start
 ```
 
-> The current screens are placeholders and don't use the database yet, but data features (ADTCIA-28 onward) will.
+To also run the edge functions (onboarding saves through one), open another terminal in the main folder and run `npm run dev:functions`. Leave it open.
+
+> **On UF Wi-Fi your phone can't reach this database** (only the app itself goes through the tunnel). The app still works: after sign-in it waits up to 5 seconds for the "do you have a profile?" check, then lets you through. To test **onboarding** for a brand-new account, use home Wi-Fi or connect your laptop to your phone's hotspot, and set `EXPO_PUBLIC_SUPABASE_URL` to your laptop's IP on that network (Part A, Step 7).
 
 ### Step 2: Start the app server
 
@@ -134,7 +138,9 @@ npx expo start --tunnel
 
 The first time takes up to a minute while the app loads.
 
-✅ **It worked if** you see a white card that says **Sign in** with a purple **ADTCIA-27** tag.
+✅ **It worked if** you see the **Sign in** screen with **Continue with Google** and an email box.
+
+Sign in with the **same account you use on the website**. You land on **Home**, which greets you by name. A brand-new account first sees **Finish your profile** (name and grad year). **Profile → Sign out** takes you back to Sign in. Closing and reopening the app keeps you signed in.
 
 > Use the **QR code**, not the "Development servers" list in Expo Go. That list can point at an address UF Wi-Fi blocks.
 
@@ -166,9 +172,11 @@ npm test
 mobile/
   src/
     app/              Screens. Every file here is a screen (Expo Router).
-      _layout.tsx       Decides what you see: signed out → (auth), signed in → (tabs)
-      (auth)/           Screens for signed-out users (Sign in)
+      _layout.tsx       Decides what you see: signed out → (auth), no profile → onboarding, otherwise → (tabs)
+      (auth)/           Sign in and Create account (Google or a 6-digit email code)
+      onboarding.tsx    Finish your profile (first name, last name, grad year)
       (tabs)/           The tab bar for signed-in users: Home, Check in, Profile
+    lib/              Non-screen logic: the onboarding check, onboarding submit, Clerk error messages
     components/       Reusable pieces (Screen, PlaceholderScreen, Button)
     theme/            All colours, corner sizes and spacing
 ```
@@ -208,6 +216,9 @@ Find the message you're seeing:
 | Expo Go asks you to **sign in to Expo CLI** / run `npx expo login` | Do Part A, Steps 3 and 6. Use the same account on phone and computer. |
 | **"Could not connect to development server"**, stuck at some % | The download dropped partway (common on UF Wi-Fi). Fully close Expo Go (swipe it away), open it, and scan again. The second try is fast. Still failing? Turn off Wi-Fi on your phone and use cellular data. |
 | **"Could not connect"** right away, no % | The server isn't running (Part B, Step 2), or you tapped the "Development servers" list instead of scanning the QR code. |
+| **"Could not connect"** keeps happening even though the server is running | The tunnel has gone stale (common after it's been running for hours). Stop the server (Ctrl + C), start it again, delete the old entries under **Recently opened** in Expo Go, and scan the **new** QR code. The address may change (e.g. `-8081` → `-8082`). |
+| iPhone: **"You're signed in to Expo CLI as … and to Expo Go as …"** | The phone and the computer running the server use different Expo accounts. Run the server on your own laptop with your own account (see the iPhone rule in Part A, Step 3). |
+| **Onboarding:** "Couldn't reach the server" when tapping Continue | The phone can't reach your local Supabase (e.g. on UF Wi-Fi). Use home Wi-Fi or a hotspot and your laptop's IP on that network, and make sure `npx supabase start` and `npm run dev:functions` are running. |
 | Expo Go says the project is **incompatible** / wrong SDK | Update Expo Go from the App Store or Google Play. This app needs SDK 57. |
 | **"Network request failed"** when the app loads data | Check `EXPO_PUBLIC_SUPABASE_URL` uses your computer's IP, not `127.0.0.1` (Part A, Step 7), and that `npx supabase start` is running. |
 | `npx supabase start` fails on Windows with an error about **vector** or **analytics** | Run `npx supabase start -x vector,logflare` instead. It skips the logging services, which don't work on Windows. |
