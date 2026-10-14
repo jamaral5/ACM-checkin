@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/button';
 import { FooterText, FormError, FormScreen, TextField, TextLink } from '@/components/form';
+import { env } from '@/lib/env';
 import { submitOnboardingProfile, validateOnboarding } from '@/lib/onboarding';
 import { useProfileStatus } from '@/lib/profile-status';
 
@@ -14,7 +15,7 @@ export default function OnboardingScreen() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const { signOut } = useClerk();
-  const { markComplete } = useProfileStatus();
+  const { markComplete, refresh } = useProfileStatus();
 
   // Google sign-ups already have a name in Clerk -- start from it.
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
@@ -34,19 +35,30 @@ export default function OnboardingScreen() {
     setError(null);
     setLoading(true);
     try {
-      const result = await submitOnboardingProfile(input, () => getToken());
+      const result = await submitOnboardingProfile(input, () => getToken(), {
+        supabaseUrl: env.supabaseUrl,
+        supabaseAnonKey: env.supabaseAnonKey,
+      });
       if (!result.ok) {
         setError(result.error);
         return;
       }
 
-      // Keep Clerk's name in step so the tabs greet the user by it. Best
-      // effort: the profile is saved even if this fails.
+      if (result.saved) {
+        // The edge function wrote the attendees row and updated the Clerk
+        // name server-side. Pull the new name, then re-run the gate: it now
+        // finds the row and the root navigator moves to the tabs.
+        await user?.reload().catch(() => undefined);
+        refresh();
+        return;
+      }
+
+      // Edge function not deployed yet (stub mode): set the name in Clerk
+      // ourselves and let the user through for this app session.
       await user
         ?.update({ firstName: firstName.trim(), lastName: lastName.trim() })
         .catch((err) => console.warn('Could not update Clerk name', err));
-
-      markComplete(); // root navigator moves to the tabs
+      markComplete();
     } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {

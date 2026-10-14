@@ -31,28 +31,82 @@ export function validateOnboarding(input: OnboardingInput): string | null {
   return null;
 }
 
-export type SubmitResult = { ok: true } | { ok: false; error: string };
+export type SubmitResult =
+  /**
+   * `saved: true`  -- the attendees row now exists (created, or a guest row claimed).
+   * `saved: false` -- the edge function isn't deployed on this Supabase yet, so
+   *                   nothing was written (see below).
+   */
+  | { ok: true; saved: boolean }
+  | { ok: false; error: string };
+
+export const ONBOARD_FUNCTION = 'onboard-attendee';
+
+type SubmitDeps = {
+  supabaseUrl: string | undefined;
+  supabaseAnonKey: string | undefined;
+  fetchImpl?: typeof fetch;
+};
 
 /**
- * Creates (or claims) the user's attendees row.
+ * Creates (or claims) the user's attendees row through the onboard-attendee
+ * edge function (ADTCIA-30). Mobile can't write the row itself: web does it
+ * server-side with the service-role key, which must never ship in an app.
  *
- * STUB until Luis's onboarding edge function (ADTCIA-30) is merged. Mobile
- * can't do this itself: web does it server-side with the service-role key,
- * which must never ship inside an app. The real version will POST the
- * trimmed input to the edge function with the user's Clerk token.
+ * The function identifies the user from the Clerk token -- never from the
+ * body -- links any earlier guest check-ins by email, and syncs the name to
+ * Clerk.
  *
- * Until then this succeeds without writing anything. The caller marks the
- * profile complete for the rest of this app session only, so the flow can be
- * demoed end to end; on the next launch the gate finds no row and shows
- * onboarding again.
+ * Until that function is merged and served, Supabase answers 404. In that
+ * case this returns `{ ok: true, saved: false }` so the flow can still be
+ * demoed; the caller lets the user through for this app session only.
  */
 export async function submitOnboardingProfile(
   input: OnboardingInput,
-  _getToken: () => Promise<string | null>,
+  getToken: () => Promise<string | null>,
+  { supabaseUrl, supabaseAnonKey, fetchImpl = fetch }: SubmitDeps,
 ): Promise<SubmitResult> {
-  const error = validateOnboarding(input);
-  if (error) return { ok: false, error };
+  const invalid = validateOnboarding(input);
+  if (invalid) return { ok: false, error: invalid };
 
-  // TODO(ADTCIA-30): call the onboarding edge function here.
-  return { ok: true };
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { ok: false, error: 'The app is missing its Supabase settings (see mobile/README.md).' };
+  }
+
+  const token = await getToken().catch(() => null);
+  if (!token) {
+    return { ok: false, error: 'Your session has expired. Please sign in again.' };
+  }
+
+  let res: Response;
+  try {
+    res = await fetchImpl(`${supabaseUrl.replace(/\/+$/, '')}/functions/v1/${ONBOARD_FUNCTION}`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        gradYear: input.gradYear.trim(),
+      }),
+    });
+  } catch {
+    return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+  }
+
+  if (res.status === 404) {
+    // Function not deployed yet (ADTCIA-30 not merged) -- fall back to the stub.
+    return { ok: true, saved: false };
+  }
+
+  const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (res.ok && body?.ok) return { ok: true, saved: true };
+
+  return {
+    ok: false,
+    error: body?.error ?? `Couldn't save your profile (error ${res.status}). Please try again.`,
+  };
 }
