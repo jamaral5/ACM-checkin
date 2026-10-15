@@ -16,6 +16,8 @@ export interface AttendanceInsert {
 
 const POLL_MS = 10_000;
 const SUBSCRIBE_TIMEOUT_MS = 5_000;
+// Safety net while Live: a channel can subscribe yet never deliver (e.g. table unpublished).
+const CATCH_UP_MS = 60_000;
 
 // Dev-only: append ?feed=poll to the URL to skip Realtime and test polling.
 function pollingForced(): boolean {
@@ -25,8 +27,9 @@ function pollingForced(): boolean {
 
 /**
  * Streams new check-ins for one meeting via Realtime, falling back to polling
- * every 10s if the channel fails or does not subscribe in time. Runs only
- * while `enabled` and the browser tab is visible; catches up on each start.
+ * every 10s if the channel fails or does not subscribe in time, and catching
+ * up every 60s while Live. Runs only while `enabled` and the browser tab is
+ * visible; catches up on each start.
  */
 export function useLiveCheckIns({
   supabase,
@@ -69,6 +72,7 @@ export function useLiveCheckIns({
     let channel: RealtimeChannel | null = null;
     let pollTimer: ReturnType<typeof setInterval> | undefined;
     let subscribeTimer: ReturnType<typeof setTimeout> | undefined;
+    let catchUpTimer: ReturnType<typeof setInterval> | undefined;
 
     const dropChannel = () => {
       if (channel) supabase.removeChannel(channel);
@@ -79,6 +83,7 @@ export function useLiveCheckIns({
       if (cancelled || polling) return;
       polling = true;
       clearTimeout(subscribeTimer);
+      clearInterval(catchUpTimer);
       dropChannel();
       if (!forced) setSettled("polling");
       pollTimer = setInterval(() => handlers.current.onPoll(), POLL_MS);
@@ -91,6 +96,7 @@ export function useLiveCheckIns({
       startPolling();
     } else {
       subscribeTimer = setTimeout(startPolling, SUBSCRIBE_TIMEOUT_MS);
+      catchUpTimer = setInterval(() => handlers.current.onPoll(), CATCH_UP_MS);
       // Re-read the Clerk token; the client may have been created before Clerk loaded.
       supabase.realtime
         .setAuth()
@@ -126,6 +132,7 @@ export function useLiveCheckIns({
       cancelled = true;
       clearTimeout(subscribeTimer);
       clearInterval(pollTimer);
+      clearInterval(catchUpTimer);
       dropChannel();
       setSettled(null);
     };
