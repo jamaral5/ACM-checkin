@@ -1,7 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { createSupabase } from "../client";
-import { DataError, getMyAttendee, getMyMemberships, getOrgBySlug } from "../queries";
-import { anonKey, fakeJwt, jsonResponse, recordingFetch } from "./helpers";
+import { createSupabase } from "./client";
+import { DataError, getMyAttendee, getMyMemberships, getOrgBySlug } from "./queries";
+import { anonKey, fakeJwt, jsonResponse, recordingFetch } from "./test-helpers";
 
 const url = "http://127.0.0.1:54321";
 

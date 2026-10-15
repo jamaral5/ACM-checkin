@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { env } from "../env";
 import type { Database } from "./database.types";
 import { decodeJwtClaims, subjectOf } from "./jwt";
 
@@ -18,11 +19,11 @@ export type SupabaseConfig = {
 };
 
 export function readSupabaseConfig(): SupabaseConfig {
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const url = env.supabaseUrl;
+  const anonKey = env.supabaseAnonKey;
   if (!url || !anonKey) {
     throw new Error(
-      "EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY must be set. See mobile/README.md.",
+      "EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY must be set in mobile/.env.local. See mobile/README.md.",
     );
   }
   return { url, anonKey };

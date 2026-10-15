@@ -1,8 +1,7 @@
-import { randomUUID } from "node:crypto";
-import { SignJWT } from "jose";
-import { beforeAll, describe, expect, it } from "vitest";
-import { createSupabase, type MobileSupabase } from "../client";
-import { DataError, getMyAttendee, getMyMemberships, getOrgBySlug } from "../queries";
+import { createHmac, randomUUID } from "node:crypto";
+import { fetch as nodeFetch } from "undici";
+import { createSupabase, type MobileSupabase } from "./client";
+import { DataError, getMyAttendee, getMyMemberships, getOrgBySlug } from "./queries";
 
 const url = process.env.SUPABASE_URL ?? process.env.API_URL;
 const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.ANON_KEY;
@@ -19,16 +18,21 @@ type TestUser = { clerkId: string; token: string; supabase: MobileSupabase };
 
 async function mintSessionToken(clerkId: string, expiresAt?: number): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  return new SignJWT({ role: "authenticated", sid: `sess_${randomUUID()}` })
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setSubject(clerkId)
-    .setIssuedAt(expiresAt ? expiresAt - 120 : now)
-    .setExpirationTime(expiresAt ?? now + 300)
-    .sign(new TextEncoder().encode(jwtSecret));
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const header = encode({ alg: "HS256", typ: "JWT" });
+  const payload = encode({
+    sub: clerkId,
+    role: "authenticated",
+    sid: `sess_${randomUUID()}`,
+    iat: expiresAt ? expiresAt - 120 : now,
+    exp: expiresAt ?? now + 300,
+  });
+  const signature = createHmac("sha256", jwtSecret!).update(`${header}.${payload}`).digest("base64url");
+  return `${header}.${payload}.${signature}`;
 }
 
 function clientFor(getToken: () => Promise<string | null>): MobileSupabase {
-  return createSupabase(getToken, { url: url!, anonKey: anonKey! });
+  return createSupabase(getToken, { url: url!, anonKey: anonKey!, fetch: nodeFetch as unknown as typeof fetch });
 }
 
 async function signedInUser(label: string): Promise<TestUser> {
@@ -46,7 +50,7 @@ async function signedInUser(label: string): Promise<TestUser> {
   return { clerkId, token, supabase };
 }
 
-describe.skipIf(!configured)("RLS through the mobile client (local Supabase)", () => {
+(configured ? describe : describe.skip)("RLS through the mobile client (local Supabase)", () => {
   let memberA: TestUser;
   let memberB: TestUser;
   let orgSlug: string;

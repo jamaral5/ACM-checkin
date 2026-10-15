@@ -1,7 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { assertPublicKey, createSupabase } from "../client";
-import { decodeJwtClaims, subjectOf } from "../jwt";
-import { anonKey, fakeJwt, recordingFetch } from "./helpers";
+import { assertPublicKey, createSupabase } from "./client";
+import { decodeJwtClaims, subjectOf } from "./jwt";
+import { anonKey, fakeJwt, recordingFetch } from "./test-helpers";
 
 const url = "http://127.0.0.1:54321";
 

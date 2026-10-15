@@ -205,6 +205,47 @@ Design rules (same as the website): purple (`colors.accent`) is **only** for the
 
 ---
 
+## How auth reaches Supabase
+
+The app has no API server. It reads the same Supabase tables as the web app, under the same RLS policies.
+
+1. Clerk signs the user in and owns the session.
+2. Every Supabase request calls `getClerkInstance().session.getToken()` through the supabase-js `accessToken` option. Clerk returns its cached session JWT and refreshes it before it expires, so the app never stores a token.
+3. Supabase accepts that JWT because Clerk is registered as a third-party auth provider (`[auth.third_party.clerk]` in `supabase/config.toml`).
+4. RLS policies read the caller from `auth.jwt() ->> 'sub'` through `current_clerk_id()`. That Clerk id is the only identity Postgres trusts.
+
+When the user is signed out, `useSupabase()` returns `null` and every query function returns `null` or `[]` without a network call. If a request goes out with no session anyway, supabase-js sends the anon key and RLS returns no personal data.
+
+The app bundle only holds the anon key. `createSupabase` throws if it receives a service-role key (`sb_secret_...` or a JWT with `role: service_role`).
+
+The query functions filter by the Clerk id decoded from the same token Supabase verifies. That filter narrows results for officers and admins, whose policies can read other people's rows. RLS does the security check, so screens never pass in a user id.
+
+## Using it in a screen
+
+```tsx
+import { getMyMemberships, useSupabase, type MyMembership } from "../lib/supabase";
+
+const supabase = useSupabase();
+const [memberships, setMemberships] = useState<MyMembership[]>([]);
+const [error, setError] = useState<unknown>(null);
+
+useEffect(() => {
+  getMyMemberships(supabase).then(setMemberships).catch(setError);
+}, [supabase]);
+```
+
+Add new reads to `src/lib/supabase/queries.ts` instead of writing queries inline. Query functions throw a `DataError` when Supabase returns an error. `error.authRejected` is true when Supabase rejected the Clerk token, which usually means the Clerk third-party provider is missing or points at a different Clerk instance than your keys.
+
+## Database types
+
+`src/lib/supabase/database.types.ts` is generated from the migrations. Regenerate it after any migration with `npm run gen:types` while local Supabase is running.
+
+## Tests
+
+`npm test` runs the unit tests. `npm run test:rls` runs the RLS tests against your local Supabase on Mac, Windows or Linux. It mints session tokens with the local JWT secret, creates two throwaway attendees named `user_rlstest_...`, and checks that each user only sees their own rows and that signed out reads return nothing. Those rows stay in your local database until you run `npx supabase db reset`.
+
+---
+
 ## Something went wrong?
 
 Find the message you're seeing:
