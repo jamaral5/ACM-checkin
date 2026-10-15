@@ -4,10 +4,12 @@ import { membershipProgress, orgAccent, roleLabel } from '@/lib/org-display';
 import type { HomeOrg } from '@/lib/supabase';
 import { colors, radii, shadows, space } from '@/theme';
 
-export function OrgCard({ org, role, attended }: HomeOrg) {
+export function OrgCard({ org, role, status, attended }: HomeOrg) {
   const name = org.name ?? org.slug ?? 'Organization';
   const accent = orgAccent(org.branding) ?? colors.accent;
-  const progress = membershipProgress(org.slug, attended);
+  const progress = membershipProgress(org.slug, attended, status);
+  const showProgress = progress.isMember || progress.threshold !== null;
+  const fillRatio = progress.isMember || progress.threshold === null ? 1 : Math.min(attended / progress.threshold, 1);
   const checkIns = `${attended} ${attended === 1 ? 'check-in' : 'check-ins'}`;
 
   return (
@@ -27,7 +29,7 @@ export function OrgCard({ org, role, attended }: HomeOrg) {
         </View>
       </View>
 
-      {progress ? (
+      {showProgress ? (
         <View style={styles.progressBlock}>
           <View style={styles.track}>
             <View
@@ -35,14 +37,14 @@ export function OrgCard({ org, role, attended }: HomeOrg) {
                 styles.fill,
                 {
                   backgroundColor: progress.isMember ? colors.good : accent,
-                  width: `${Math.min(progress.attended / progress.threshold, 1) * 100}%`,
+                  width: `${fillRatio * 100}%`,
                 },
               ]}
             />
           </View>
           <Text style={[styles.progressText, progress.isMember && styles.memberText]}>
             {progress.isMember
-              ? 'Member'
+              ? "You're a member"
               : `${progress.remaining} more ${progress.remaining === 1 ? 'check-in' : 'check-ins'} to become a member`}
           </Text>
         </View>

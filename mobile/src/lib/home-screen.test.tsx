@@ -18,6 +18,7 @@ jest.mock('@/lib/supabase', () => ({
 const acm: HomeOrg = {
   org: { id: 'org-acm', slug: 'acm', name: 'ACM', branding: null, created_at: '2026-10-01T00:00:00Z' },
   role: 'officer',
+  status: 'pending',
   attended: 2,
 };
 
@@ -32,6 +33,14 @@ it('lists your orgs with check-ins and progress', async () => {
   expect(screen.getByText('2 check-ins')).toBeTruthy();
   expect(screen.getByText('Officer')).toBeTruthy();
   expect(screen.getByText('1 more check-in to become a member')).toBeTruthy();
+});
+
+it('shows an active member with only 1 check-in as a member', async () => {
+  mockGetMyHomeOrgs.mockResolvedValue([{ ...acm, role: 'member', status: 'active', attended: 1 }]);
+  await render(<HomeScreen />);
+
+  expect(await screen.findByText("You're a member")).toBeTruthy();
+  expect(screen.queryByText(/more check-ins? to become a member/)).toBeNull();
 });
 
 it('shows the empty state when you have no orgs', async () => {

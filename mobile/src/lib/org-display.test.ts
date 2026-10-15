@@ -20,16 +20,24 @@ describe('orgAccent', () => {
 
 describe('membershipProgress', () => {
   it('counts down to the threshold', () => {
-    expect(membershipProgress('acm', 1)).toEqual({ threshold: 3, attended: 1, remaining: 2, isMember: false });
+    expect(membershipProgress('acm', 1, 'pending')).toEqual({ threshold: 3, attended: 1, remaining: 2, isMember: false });
   });
 
   it('marks you a member once you reach it', () => {
-    expect(membershipProgress('ACM', 4)).toMatchObject({ remaining: 0, isMember: true });
+    expect(membershipProgress('ACM', 4, 'pending')).toMatchObject({ remaining: 0, isMember: true });
   });
 
-  it('has no progress for an org without a threshold', () => {
-    expect(membershipProgress('colorstack', 5)).toBeNull();
-    expect(membershipProgress(null, 5)).toBeNull();
+  it('treats an active member with only 1 check-in as a member', () => {
+    expect(membershipProgress('acm', 1, 'active')).toMatchObject({ threshold: 3, isMember: true });
+  });
+
+  it('treats an active member of an org without a threshold as a member', () => {
+    expect(membershipProgress('colorstack', 0, 'active')).toMatchObject({ threshold: null, isMember: true });
+  });
+
+  it('never makes you a member from check-ins alone when the org has no threshold', () => {
+    expect(membershipProgress('colorstack', 5, 'pending')).toMatchObject({ threshold: null, isMember: false });
+    expect(membershipProgress(null, 5, null)).toMatchObject({ threshold: null, isMember: false });
   });
 });
 

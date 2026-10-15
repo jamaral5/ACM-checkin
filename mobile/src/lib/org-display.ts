@@ -15,17 +15,22 @@ export function orgAccent(branding: Json | null): string | null {
 }
 
 export type MembershipProgress = {
-  threshold: number;
+  threshold: number | null;
   attended: number;
   remaining: number;
   isMember: boolean;
 };
 
-export function membershipProgress(slug: string | null, attended: number): MembershipProgress | null {
-  const threshold = slug ? MEMBERSHIP_THRESHOLDS[slug.toLowerCase()] : undefined;
-  if (!threshold) return null;
-  const remaining = Math.max(threshold - attended, 0);
-  return { threshold, attended, remaining, isMember: remaining === 0 };
+export function membershipProgress(
+  slug: string | null,
+  attended: number,
+  status: string | null,
+): MembershipProgress {
+  const threshold = slug ? (MEMBERSHIP_THRESHOLDS[slug.toLowerCase()] ?? null) : null;
+  const meetsThreshold = threshold !== null && attended >= threshold;
+  const isMember = status === 'active' || meetsThreshold;
+  const remaining = threshold === null ? 0 : Math.max(threshold - attended, 0);
+  return { threshold, attended, remaining, isMember };
 }
 
 export function roleLabel(role: string): string {

@@ -90,6 +90,7 @@ export async function getOrgBySlug(
 export type HomeOrg = {
   org: Organization;
   role: string;
+  status: string | null;
   attended: number;
 };
 
@@ -106,6 +107,7 @@ export function buildHomeOrgs(
     .map((membership) => ({
       org: membership.organization,
       role: membership.role,
+      status: membership.status,
       attended: counts.get(membership.org_id) ?? 0,
     }))
     .sort((a, b) => (a.org.name ?? "").localeCompare(b.org.name ?? ""));
